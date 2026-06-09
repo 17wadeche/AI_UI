@@ -1,0 +1,35 @@
+{
+  "name": "chey-ai-ui",
+  "version": "2.0.0",
+  "description": "Chey's local Ollama AI desktop app",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "desktop": "electron .",
+    "package-mac": "electron-builder --mac dir"
+  },
+  "dependencies": {
+    "express": "latest"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "com.chey.localai",
+    "productName": "Chey Local AI",
+    "mac": {
+      "target": "dir",
+      "identity": null
+    },
+    "files": [
+      "main.js",
+      "preload.cjs",
+      "server.js",
+      "public/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ]
+  }
+}

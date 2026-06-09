@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chey Local AI</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-theme="dark">
+  <div class="app-shell">
+    <aside class="chats-panel">
+      <div class="brand-row">
+        <div>
+          <h1>Chey Local AI</h1>
+          <p>Ollama desktop assistant</p>
+        </div>
+        <button id="themeToggle" class="small-button" title="Toggle dark/light mode">☀︎</button>
+      </div>
+
+      <button id="newChat" class="primary-button">+ New Chat</button>
+
+      <div class="status-card">
+        <div class="status-line">
+          <span id="statusDot" class="dot gray"></span>
+          <span id="statusText">Checking Ollama...</span>
+        </div>
+        <div id="modelStatus" class="muted">Checking model...</div>
+        <button id="refreshStatus" class="secondary-button">Refresh Status</button>
+        <button id="downloadModel" class="secondary-button hidden">Download qwen3:4b</button>
+        <div id="downloadProgress" class="muted"></div>
+      </div>
+
+      <h2>Saved Chats</h2>
+      <div class="chat-controls">
+        <button id="selectChats" class="secondary-button">Select</button>
+        <button id="deleteSelectedChats" class="danger-button" disabled>Delete</button>
+        <button id="cancelSelectChats" class="secondary-button hidden">Cancel</button>
+      </div>
+      <div id="chatList" class="chat-list"></div>
+
+      <div class="export-row">
+        <select id="exportFormat">
+          <option value="md">Markdown</option>
+          <option value="txt">Text</option>
+        </select>
+        <button id="exportChat" class="secondary-button">Export</button>
+      </div>
+    </aside>
+
+    <main class="chat-panel">
+      <div id="messages" class="messages"></div>
+
+      <div class="composer">
+        <textarea id="input" placeholder="Ask your local AI anything..."></textarea>
+        <div class="composer-actions">
+          <button id="send" class="primary-button">Send</button>
+          <button id="stop" class="danger-button" disabled>Stop</button>
+        </div>
+      </div>
+      <p id="status" class="footer-status">Ready.</p>
+    </main>
+
+    <aside class="settings-panel">
+      <div class="panel-header">
+        <h2>Model Settings</h2>
+        <button id="hideSettings" class="secondary-button">Hide</button>
+      </div>
+
+      <label>
+        Model
+        <input id="model" value="qwen3:4b" />
+      </label>
+
+      <label>
+        Context Preset
+        <select id="contextPreset">
+          <option value="4096">Safe - 4096</option>
+          <option value="8192" selected>Balanced - 8192</option>
+          <option value="16384">Large - 16384</option>
+          <option value="32768">Risky - 32768</option>
+        </select>
+      </label>
+
+      <label>
+        Custom Context Window
+        <input id="context" type="number" min="1024" max="256000" step="1024" value="8192" />
+      </label>
+
+      <label>
+        Temperature: <span id="tempValue">0</span>
+        <input id="temperature" type="range" min="0" max="1" step="0.1" value="0" />
+      </label>
+
+      <label class="checkbox">
+        <input id="thinking" type="checkbox" />
+        Thinking mode
+      </label>
+
+      <div class="meter-card">
+        <div class="meter-title">Context estimate</div>
+        <div class="meter">
+          <div id="tokenBar" class="meter-fill"></div>
+        </div>
+        <div id="tokenEstimate" class="muted">0 estimated tokens</div>
+        <div id="tokenWarning" class="warning"></div>
+      </div>
+
+      <h2>Prompt Presets</h2>
+      <div class="row">
+        <select id="promptPreset">
+          <option value="coding">Coding helper</option>
+          <option value="appBuilder">App builder</option>
+          <option value="bugFixer">Bug fixer</option>
+        </select>
+        <button id="applyPreset" class="secondary-button">Apply</button>
+      </div>
+
+      <label>
+        System Rules
+        <textarea id="system" rows="12"></textarea>
+      </label>
+
+      <h2>Project Folder Mode</h2>
+      <p class="muted">Select files to include as context. Keep it small on 8 GB RAM.</p>
+      <button id="selectFolder" class="secondary-button">Select Project Folder</button>
+      <button id="clearProject" class="secondary-button">Clear Project</button>
+      <div id="projectStatus" class="muted">No project folder selected.</div>
+      <input id="projectSearch" placeholder="Filter files..." />
+      <div id="projectSelectedCount" class="muted">0 files selected</div>
+      <div id="projectFiles" class="project-files"></div>
+    </aside>
+    <button id="showSettings" class="floating-settings hidden">Show Settings</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
