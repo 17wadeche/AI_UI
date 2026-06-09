@@ -1,2 +1,14 @@
 /dist
 /node_modules
+# Build output
+dist/
+out/
+build/
+release/
+
+# Packaged Electron artifacts
+*.dmg
+*.zip
+*.AppImage
+*.exe
+*.msi
