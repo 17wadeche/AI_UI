@@ -1,19 +1,22 @@
 const DEFAULT_SYSTEM = `You are Chey's local coding assistant.
 
+Answer directly and keep responses concise unless I ask for more detail.
+Do not reveal hidden reasoning, planning, chain-of-thought, or <think> blocks.
 Be honest when you are unsure.
 Do not invent APIs, packages, files, or commands.
 For code, prefer simple working examples.
 When writing code, always use fenced code blocks with the correct language, like \`\`\`html, \`\`\`css, \`\`\`javascript, or \`\`\`python.
-Answer directly and keep responses concise unless I ask for more detail.
-Do not reveal hidden reasoning, planning, chain-of-thought, or <think> blocks.
+If you propose file edits, prefer a unified git diff in a \`\`\`diff code block.
+Explain things clearly and step by step.
 When debugging, ask for the error message or file contents if needed.
 Do not overcomplicate small projects.
-Focus on JavaScript, HTML, CSS, Python, React, APIs, VS Code, and app development.`;
+Focus on JavaScript, HTML, CSS, Python, React, APIs, VS Code, GitHub, and app development.`;
 
 const PRESETS = {
   coding: DEFAULT_SYSTEM,
   appBuilder: `You are Chey's local app-building assistant.
 
+Answer directly. Do not reveal hidden reasoning or <think> blocks.
 Help plan, build, and improve apps step by step.
 Prefer simple, working code over complicated architecture.
 When giving code, use fenced code blocks with correct languages.
@@ -22,6 +25,7 @@ Ask for missing requirements instead of guessing.
 Warn about risky commands before using them.`,
   bugFixer: `You are Chey's local debugging assistant.
 
+Answer directly. Do not reveal hidden reasoning or <think> blocks.
 Focus on finding the exact cause of bugs.
 Do not guess. Ask for the error message, file contents, or command output if needed.
 Give the smallest safe fix first.
@@ -36,19 +40,24 @@ const els = {
   refreshStatus: document.getElementById("refreshStatus"),
   downloadModel: document.getElementById("downloadModel"),
   downloadProgress: document.getElementById("downloadProgress"),
+
   selectChats: document.getElementById("selectChats"),
   deleteSelectedChats: document.getElementById("deleteSelectedChats"),
   cancelSelectChats: document.getElementById("cancelSelectChats"),
+  deleteAllChats: document.getElementById("deleteAllChats"),
+  chatSearch: document.getElementById("chatSearch"),
   newChat: document.getElementById("newChat"),
   chatList: document.getElementById("chatList"),
   exportFormat: document.getElementById("exportFormat"),
   exportChat: document.getElementById("exportChat"),
   themeToggle: document.getElementById("themeToggle"),
+
   messages: document.getElementById("messages"),
   input: document.getElementById("input"),
   send: document.getElementById("send"),
   stop: document.getElementById("stop"),
   footerStatus: document.getElementById("status"),
+
   model: document.getElementById("model"),
   contextPreset: document.getElementById("contextPreset"),
   context: document.getElementById("context"),
@@ -61,20 +70,44 @@ const els = {
   promptPreset: document.getElementById("promptPreset"),
   applyPreset: document.getElementById("applyPreset"),
   system: document.getElementById("system"),
+
+  hideSettings: document.getElementById("hideSettings"),
+  showSettings: document.getElementById("showSettings"),
+
+  githubUrl: document.getElementById("githubUrl"),
+  cloneRepo: document.getElementById("cloneRepo"),
+  gitPull: document.getElementById("gitPull"),
   selectFolder: document.getElementById("selectFolder"),
+  refreshProject: document.getElementById("refreshProject"),
   clearProject: document.getElementById("clearProject"),
   projectStatus: document.getElementById("projectStatus"),
+
+  gitStatusBtn: document.getElementById("gitStatusBtn"),
+  gitDiffBtn: document.getElementById("gitDiffBtn"),
+  commitMsgBtn: document.getElementById("commitMsgBtn"),
+  undoPatchBtn: document.getElementById("undoPatchBtn"),
+  gitOutput: document.getElementById("gitOutput"),
+
   projectSearch: document.getElementById("projectSearch"),
+  searchCodeBtn: document.getElementById("searchCodeBtn"),
+  selectSearchResults: document.getElementById("selectSearchResults"),
   projectSelectedCount: document.getElementById("projectSelectedCount"),
   projectFiles: document.getElementById("projectFiles"),
-  hideSettings: document.getElementById("hideSettings"),
-  showSettings: document.getElementById("showSettings")
+
+  explainProjectBtn: document.getElementById("explainProjectBtn"),
+  bugFinderBtn: document.getElementById("bugFinderBtn"),
+  diffPromptBtn: document.getElementById("diffPromptBtn"),
+  logAnalyzerBtn: document.getElementById("logAnalyzerBtn"),
+  patchPreview: document.getElementById("patchPreview"),
+  applyPatchBtn: document.getElementById("applyPatchBtn"),
+  terminalCommand: document.getElementById("terminalCommand"),
+  runCommandBtn: document.getElementById("runCommandBtn")
 };
 
 let chats = [];
 let currentChatId = null;
 let abortController = null;
-let project = { folder: null, files: [] };
+let project = { folder: null, files: [], visibleFiles: [] };
 let chatSelectionMode = false;
 let selectedChatIds = new Set();
 
@@ -90,29 +123,38 @@ function getCurrentChat() {
   return chats.find((chat) => chat.id === currentChatId);
 }
 
+function cleanModelOutput(content) {
+  let text = content || "";
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  const closingThink = text.toLowerCase().lastIndexOf("</think>");
+  if (closingThink !== -1) {
+    text = text.slice(closingThink + "</think>".length).trim();
+  }
+
+  text = text.replace(/^Answer:\s*/i, "").trim();
+  return text;
+}
+
 function loadState() {
   const settings = JSON.parse(localStorage.getItem("chey-ai-settings") || "{}");
+
   els.model.value = settings.model || "qwen3:4b";
   els.context.value = settings.context || "8192";
   els.contextPreset.value = ["4096", "8192", "16384", "32768"].includes(els.context.value) ? els.context.value : "8192";
   els.temperature.value = settings.temperature ?? "0";
   els.thinking.checked = Boolean(settings.thinking);
   els.system.value = settings.system || DEFAULT_SYSTEM;
+
   document.body.dataset.theme = settings.theme || "dark";
   document.body.classList.toggle("settings-hidden", Boolean(settings.settingsHidden));
-  if (els.showSettings) {
-    els.showSettings.classList.toggle("hidden", !document.body.classList.contains("settings-hidden"));
-  }
-  if (els.themeToggle) {
-    els.themeToggle.textContent = document.body.dataset.theme === "dark" ? "☀︎" : "☾";
-  }
+  els.showSettings?.classList.toggle("hidden", !document.body.classList.contains("settings-hidden"));
+  els.themeToggle.textContent = document.body.dataset.theme === "dark" ? "☀︎" : "☾";
 
   chats = JSON.parse(localStorage.getItem("chey-ai-chats") || "[]");
   currentChatId = localStorage.getItem("chey-ai-current-chat");
 
-  if (!chats.length || !getCurrentChat()) {
-    createNewChat(false);
-  }
+  if (!chats.length || !getCurrentChat()) createNewChat(false);
 }
 
 function saveSettings() {
@@ -132,10 +174,12 @@ function saveChats() {
   localStorage.setItem("chey-ai-current-chat", currentChatId);
 }
 
-function createNewChat(render = true) {
+function createNewChat(render = true, folder = "General") {
   const chat = {
     id: uid(),
     title: "New chat",
+    folder,
+    pinned: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     messages: []
@@ -155,7 +199,16 @@ function createNewChat(render = true) {
 function renderChatList() {
   els.chatList.innerHTML = "";
 
-  for (const chat of chats) {
+  const q = (els.chatSearch?.value || "").toLowerCase();
+
+  const filtered = chats
+    .filter((chat) => {
+      const text = [chat.title, chat.folder, ...chat.messages.map((m) => m.content)].join(" ").toLowerCase();
+      return !q || text.includes(q);
+    })
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  for (const chat of filtered) {
     if (chatSelectionMode) {
       const label = document.createElement("label");
       label.className = `chat-select-row ${chat.id === currentChatId ? "active" : ""}`;
@@ -164,16 +217,12 @@ function renderChatList() {
       checkbox.type = "checkbox";
       checkbox.checked = selectedChatIds.has(chat.id);
       checkbox.addEventListener("change", () => {
-        if (checkbox.checked) {
-          selectedChatIds.add(chat.id);
-        } else {
-          selectedChatIds.delete(chat.id);
-        }
+        checkbox.checked ? selectedChatIds.add(chat.id) : selectedChatIds.delete(chat.id);
         updateDeleteSelectionUI();
       });
 
       const title = document.createElement("span");
-      title.textContent = chat.title;
+      title.textContent = `${chat.pinned ? "📌 " : ""}${chat.folder || "General"} / ${chat.title}`;
 
       label.appendChild(checkbox);
       label.appendChild(title);
@@ -181,9 +230,22 @@ function renderChatList() {
       continue;
     }
 
+    const row = document.createElement("div");
+    row.className = "chat-item-row";
+
+    const pin = document.createElement("button");
+    pin.className = `pin-button ${chat.pinned ? "pinned" : ""}`;
+    pin.textContent = "★";
+    pin.title = "Pin/unpin chat";
+    pin.addEventListener("click", () => {
+      chat.pinned = !chat.pinned;
+      saveChats();
+      renderChatList();
+    });
+
     const button = document.createElement("button");
     button.className = `chat-item ${chat.id === currentChatId ? "active" : ""}`;
-    button.textContent = chat.title;
+    button.textContent = `${chat.folder || "General"} / ${chat.title}`;
     button.addEventListener("click", () => {
       currentChatId = chat.id;
       saveChats();
@@ -191,7 +253,10 @@ function renderChatList() {
       renderMessages();
       updateContextEstimate();
     });
-    els.chatList.appendChild(button);
+
+    row.appendChild(pin);
+    row.appendChild(button);
+    els.chatList.appendChild(row);
   }
 
   updateDeleteSelectionUI();
@@ -205,13 +270,8 @@ function updateDeleteSelectionUI() {
     els.deleteSelectedChats.textContent = count ? `Delete ${count}` : "Delete";
   }
 
-  if (els.cancelSelectChats) {
-    els.cancelSelectChats.classList.toggle("hidden", !chatSelectionMode);
-  }
-
-  if (els.selectChats) {
-    els.selectChats.classList.toggle("hidden", chatSelectionMode);
-  }
+  els.cancelSelectChats?.classList.toggle("hidden", !chatSelectionMode);
+  els.selectChats?.classList.toggle("hidden", chatSelectionMode);
 }
 
 function setChatSelectionMode(enabled) {
@@ -224,9 +284,7 @@ function deleteSelectedChats() {
   if (!selectedChatIds.size) return;
 
   const count = selectedChatIds.size;
-  const confirmed = confirm(`Delete ${count} selected chat${count === 1 ? "" : "s"}?`);
-
-  if (!confirmed) return;
+  if (!confirm(`Delete ${count} selected chat${count === 1 ? "" : "s"}?`)) return;
 
   chats = chats.filter((chat) => !selectedChatIds.has(chat.id));
 
@@ -236,9 +294,7 @@ function deleteSelectedChats() {
     createNewChat(false);
   }
 
-  if (!getCurrentChat()) {
-    currentChatId = chats[0].id;
-  }
+  if (!getCurrentChat()) currentChatId = chats[0].id;
 
   selectedChatIds = new Set();
   chatSelectionMode = false;
@@ -249,32 +305,15 @@ function deleteSelectedChats() {
   updateContextEstimate();
 }
 
-function applySettingsPanelVisibility(hidden) {
-  document.body.classList.toggle("settings-hidden", hidden);
+function deleteAllChats() {
+  if (!confirm("Delete ALL saved chats? This cannot be undone.")) return;
 
-  if (els.showSettings) {
-    els.showSettings.classList.toggle("hidden", !hidden);
-  }
-
-  saveSettings();
-}
-
-function cleanModelOutput(content) {
-  let text = content || "";
-
-  // Remove full <think>...</think> blocks if the model leaks them.
-  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-
-  // If the model only leaked a closing </think>, keep only what comes after it.
-  const closingThink = text.toLowerCase().lastIndexOf("</think>");
-  if (closingThink !== -1) {
-    text = text.slice(closingThink + "</think>".length).trim();
-  }
-
-  // Remove common markdown-ish artifacts some local models output.
-  text = text.replace(/^Answer:\s*/i, "").trim();
-
-  return text;
+  chats = [];
+  currentChatId = null;
+  createNewChat(false);
+  saveChats();
+  renderChatList();
+  renderMessages();
 }
 
 function renderMessageContent(container, content) {
@@ -315,6 +354,9 @@ function appendCodeBlock(container, language, code) {
   const languageLabel = document.createElement("span");
   languageLabel.textContent = language;
 
+  const actions = document.createElement("div");
+  actions.className = "code-action-row";
+
   const copyButton = document.createElement("button");
   copyButton.className = "copy-button";
   copyButton.textContent = "Copy";
@@ -328,13 +370,37 @@ function appendCodeBlock(container, language, code) {
     setTimeout(() => (copyButton.textContent = "Copy"), 1200);
   });
 
+  actions.appendChild(copyButton);
+
+  if (language.toLowerCase() === "diff" || code.startsWith("diff --git") || code.startsWith("--- ")) {
+    const patchButton = document.createElement("button");
+    patchButton.className = "copy-button patch-button";
+    patchButton.textContent = "Use as Patch";
+    patchButton.addEventListener("click", () => {
+      els.patchPreview.value = code;
+      els.patchPreview.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    actions.appendChild(patchButton);
+  }
+
+  if (["bash", "sh", "zsh", "shell"].includes(language.toLowerCase())) {
+    const runButton = document.createElement("button");
+    runButton.className = "copy-button run-button";
+    runButton.textContent = "Run";
+    runButton.addEventListener("click", () => {
+      els.terminalCommand.value = code;
+      runTerminalCommand();
+    });
+    actions.appendChild(runButton);
+  }
+
   const pre = document.createElement("pre");
   const codeEl = document.createElement("code");
   codeEl.textContent = code;
   pre.appendChild(codeEl);
 
   codeHeader.appendChild(languageLabel);
-  codeHeader.appendChild(copyButton);
+  codeHeader.appendChild(actions);
   codeWrapper.appendChild(codeHeader);
   codeWrapper.appendChild(pre);
   container.appendChild(codeWrapper);
@@ -363,10 +429,7 @@ function addMessageToScreen(role, content) {
 function renderMessages() {
   const chat = getCurrentChat();
   els.messages.innerHTML = "";
-
-  for (const message of chat.messages) {
-    addMessageToScreen(message.role, message.content);
-  }
+  for (const message of chat.messages) addMessageToScreen(message.role, message.content);
 }
 
 function updateSettingsUI() {
@@ -389,7 +452,9 @@ function updateContextEstimate() {
     ...(chat?.messages || []).map((message) => message.content)
   ].join("\n");
 
-  const selectedProjectEstimate = getSelectedProjectFiles().reduce((sum, file) => sum + estimateTokens("x".repeat(file.size || 0)), 0);
+  const selectedProjectEstimate = getSelectedProjectFiles()
+    .reduce((sum, file) => sum + estimateTokens("x".repeat(file.size || 0)), 0);
+
   const tokens = estimateTokens(text) + selectedProjectEstimate;
   const max = Number(els.context.value) || 8192;
   const percent = Math.min(100, Math.round((tokens / max) * 100));
@@ -492,14 +557,6 @@ async function readNdjsonStream(response, onJson) {
       }
     }
   }
-
-  if (buffer.trim()) {
-    try {
-      onJson(JSON.parse(buffer));
-    } catch {
-      // Ignore final malformed line.
-    }
-  }
 }
 
 function getSelectedProjectFiles() {
@@ -512,7 +569,7 @@ function getSelectedProjectFiles() {
 async function buildProjectContext() {
   if (!window.cheyAPI?.readProjectFiles) return "";
 
-  const selected = getSelectedProjectFiles().map((file) => file.relativePath).slice(0, 12);
+  const selected = getSelectedProjectFiles().map((file) => file.relativePath).slice(0, 16);
   if (!selected.length) return "";
 
   const files = await window.cheyAPI.readProjectFiles(selected);
@@ -546,6 +603,7 @@ async function sendMessage() {
   try {
     const projectContext = await buildProjectContext();
     const noThinkPrefix = els.thinking.checked ? "" : "/no_think\n\n";
+
     const sendMessages = chat.messages.map((message, index) => {
       const isLast = index === chat.messages.length - 1;
 
@@ -587,9 +645,7 @@ async function sendMessage() {
         return;
       }
 
-      if (data.message?.content) {
-        answer += data.message.content;
-      }
+      if (data.message?.content) answer += data.message.content;
 
       const cleanedAnswer = cleanModelOutput(answer);
       renderMessageContent(assistantBubble, cleanedAnswer || "Writing...");
@@ -640,6 +696,20 @@ function exportCurrentChat() {
   URL.revokeObjectURL(url);
 }
 
+async function setProject(result) {
+  project = {
+    folder: result.folder,
+    files: result.files || [],
+    visibleFiles: result.files || [],
+    isGitRepo: result.isGitRepo
+  };
+
+  els.projectStatus.textContent = `${project.files.length} readable files found in ${project.folder}`;
+  renderProjectFiles();
+  updateContextEstimate();
+  await updateGitStatus();
+}
+
 async function selectProjectFolder() {
   if (!window.cheyAPI?.selectProjectFolder) {
     els.projectStatus.textContent = "Project folder mode only works in the desktop app.";
@@ -648,27 +718,50 @@ async function selectProjectFolder() {
 
   const result = await window.cheyAPI.selectProjectFolder();
   if (result.canceled) return;
+  await setProject(result);
+}
 
-  project = { folder: result.folder, files: result.files || [] };
-  els.projectStatus.textContent = `${project.files.length} readable files found.`;
-  renderProjectFiles();
-  updateContextEstimate();
+async function cloneGithubRepo() {
+  const url = els.githubUrl.value.trim();
+  if (!url) return alert("Paste a GitHub repo URL first.");
+  if (!confirm(`Clone this repo?\n\n${url}`)) return;
+
+  els.projectStatus.textContent = "Cloning repo...";
+  try {
+    const result = await window.cheyAPI.cloneGithubRepo(url);
+    await setProject(result);
+    els.projectStatus.textContent = `Cloned repo. ${result.files.length} readable files found.`;
+  } catch (error) {
+    els.projectStatus.textContent = `Clone failed: ${error.message}`;
+  }
+}
+
+async function refreshProject() {
+  if (!window.cheyAPI?.refreshProjectFiles) return;
+  try {
+    const result = await window.cheyAPI.refreshProjectFiles();
+    await setProject(result);
+  } catch (error) {
+    els.projectStatus.textContent = error.message;
+  }
 }
 
 function clearProject() {
-  project = { folder: null, files: [] };
+  project = { folder: null, files: [], visibleFiles: [] };
   els.projectStatus.textContent = "No project folder selected.";
   els.projectFiles.innerHTML = "";
   els.projectSearch.value = "";
   els.projectSelectedCount.textContent = "0 files selected";
+  els.gitOutput.textContent = "";
   updateContextEstimate();
 }
 
 function renderProjectFiles() {
-  const filter = els.projectSearch.value.toLowerCase();
   els.projectFiles.innerHTML = "";
 
-  for (const file of project.files.filter((item) => item.relativePath.toLowerCase().includes(filter))) {
+  const files = project.visibleFiles || project.files || [];
+
+  for (const file of files.slice(0, 300)) {
     const row = document.createElement("label");
     row.className = "project-file-row";
 
@@ -695,6 +788,132 @@ function updateProjectCount() {
   updateContextEstimate();
 }
 
+async function searchCode() {
+  const q = els.projectSearch.value.trim();
+  if (!q) {
+    project.visibleFiles = project.files;
+    renderProjectFiles();
+    return;
+  }
+
+  try {
+    const results = await window.cheyAPI.searchProjectFiles(q);
+    project.visibleFiles = results;
+    renderProjectFiles();
+    els.projectStatus.textContent = `${results.length} search results for "${q}"`;
+  } catch (error) {
+    els.projectStatus.textContent = error.message;
+  }
+}
+
+function selectSearchResults() {
+  document.querySelectorAll(".project-checkbox").forEach((box) => {
+    box.checked = true;
+  });
+  updateProjectCount();
+}
+
+async function updateGitStatus() {
+  if (!window.cheyAPI?.gitStatus) return;
+  try {
+    const result = await window.cheyAPI.gitStatus();
+    els.gitOutput.textContent = result.status || "No git status.";
+  } catch (error) {
+    els.gitOutput.textContent = error.message;
+  }
+}
+
+async function viewGitDiff() {
+  try {
+    els.gitOutput.textContent = await window.cheyAPI.gitDiff();
+  } catch (error) {
+    els.gitOutput.textContent = error.message;
+  }
+}
+
+async function gitPull() {
+  if (!confirm("Run git pull --ff-only on this project?")) return;
+
+  try {
+    els.gitOutput.textContent = "Pulling...";
+    els.gitOutput.textContent = await window.cheyAPI.gitPull();
+    await refreshProject();
+  } catch (error) {
+    els.gitOutput.textContent = error.message;
+  }
+}
+
+async function applyPatch() {
+  const patch = els.patchPreview.value.trim();
+  if (!patch) return alert("Paste a git diff into Patch Preview first.");
+  if (!confirm("Apply this patch to your selected git repo?")) return;
+
+  try {
+    els.gitOutput.textContent = await window.cheyAPI.applyPatch(patch);
+    await refreshProject();
+  } catch (error) {
+    els.gitOutput.textContent = `Patch failed: ${error.message}`;
+  }
+}
+
+async function undoLastPatch() {
+  if (!confirm("Undo the last patch applied by Chey Local AI?")) return;
+
+  try {
+    els.gitOutput.textContent = await window.cheyAPI.undoLastPatch();
+    await refreshProject();
+  } catch (error) {
+    els.gitOutput.textContent = error.message;
+  }
+}
+
+async function runTerminalCommand() {
+  const command = els.terminalCommand.value.trim();
+  if (!command) return alert("Enter a terminal command first.");
+
+  const ok = confirm(`Run this command in the selected project?\n\n${command}`);
+  if (!ok) return;
+
+  try {
+    els.gitOutput.textContent = "Running command...";
+    els.gitOutput.textContent = await window.cheyAPI.runCommand(command);
+  } catch (error) {
+    els.gitOutput.textContent = `Command failed: ${error.message}`;
+  }
+}
+
+function askWithPrompt(prompt) {
+  els.input.value = prompt;
+  els.input.focus();
+  updateContextEstimate();
+}
+
+function explainSelectedFiles() {
+  askWithPrompt("Explain the selected project files. Tell me what this code does, how the pieces connect, and what I should know before editing it.");
+}
+
+function findBugsInSelectedFiles() {
+  askWithPrompt("Review the selected project files for bugs, fragile logic, bad assumptions, or simple improvements. Be specific and reference file names.");
+}
+
+function makePatchPrompt() {
+  askWithPrompt("Based on the selected project files, propose a safe improvement. Return the change as a unified git diff in a ```diff code block. Do not apply it automatically.");
+}
+
+function analyzeLogsPrompt() {
+  askWithPrompt("Analyze this error/log output. Explain the likely cause and the smallest safe fix. I will paste the logs below:\n\n");
+}
+
+function commitMessagePrompt() {
+  askWithPrompt("Look at the current git diff/status I pasted or selected and write a clean conventional commit message. Give 3 options.");
+}
+
+function applySettingsPanelVisibility(hidden) {
+  document.body.classList.toggle("settings-hidden", hidden);
+  els.showSettings?.classList.toggle("hidden", !hidden);
+  saveSettings();
+}
+
 function toggleTheme() {
   document.body.dataset.theme = document.body.dataset.theme === "dark" ? "light" : "dark";
   els.themeToggle.textContent = document.body.dataset.theme === "dark" ? "☀︎" : "☾";
@@ -703,17 +922,22 @@ function toggleTheme() {
 
 els.refreshStatus.addEventListener("click", checkOllamaStatus);
 els.downloadModel.addEventListener("click", downloadDefaultModel);
+
 els.selectChats.addEventListener("click", () => setChatSelectionMode(true));
 els.cancelSelectChats.addEventListener("click", () => setChatSelectionMode(false));
 els.deleteSelectedChats.addEventListener("click", deleteSelectedChats);
+els.deleteAllChats.addEventListener("click", deleteAllChats);
+els.chatSearch.addEventListener("input", renderChatList);
+
 els.newChat.addEventListener("click", () => {
   setChatSelectionMode(false);
-  createNewChat(true);
+  const folder = prompt("Chat folder name?", "General") || "General";
+  createNewChat(true, folder);
 });
+
 els.exportChat.addEventListener("click", exportCurrentChat);
 els.themeToggle.addEventListener("click", toggleTheme);
-els.hideSettings.addEventListener("click", () => applySettingsPanelVisibility(true));
-els.showSettings.addEventListener("click", () => applySettingsPanelVisibility(false));
+
 els.send.addEventListener("click", sendMessage);
 els.stop.addEventListener("click", stopGeneration);
 els.input.addEventListener("input", updateContextEstimate);
@@ -739,9 +963,32 @@ els.applyPreset.addEventListener("click", () => {
   updateSettingsUI();
 });
 
+els.hideSettings?.addEventListener("click", () => applySettingsPanelVisibility(true));
+els.showSettings?.addEventListener("click", () => applySettingsPanelVisibility(false));
+
 els.selectFolder.addEventListener("click", selectProjectFolder);
+els.cloneRepo.addEventListener("click", cloneGithubRepo);
+els.gitPull.addEventListener("click", gitPull);
+els.refreshProject.addEventListener("click", refreshProject);
 els.clearProject.addEventListener("click", clearProject);
-els.projectSearch.addEventListener("input", renderProjectFiles);
+
+els.searchCodeBtn.addEventListener("click", searchCode);
+els.selectSearchResults.addEventListener("click", selectSearchResults);
+els.projectSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") searchCode();
+});
+
+els.gitStatusBtn.addEventListener("click", updateGitStatus);
+els.gitDiffBtn.addEventListener("click", viewGitDiff);
+els.commitMsgBtn.addEventListener("click", commitMessagePrompt);
+els.undoPatchBtn.addEventListener("click", undoLastPatch);
+els.applyPatchBtn.addEventListener("click", applyPatch);
+els.runCommandBtn.addEventListener("click", runTerminalCommand);
+
+els.explainProjectBtn.addEventListener("click", explainSelectedFiles);
+els.bugFinderBtn.addEventListener("click", findBugsInSelectedFiles);
+els.diffPromptBtn.addEventListener("click", makePatchPrompt);
+els.logAnalyzerBtn.addEventListener("click", analyzeLogsPrompt);
 
 loadState();
 renderChatList();

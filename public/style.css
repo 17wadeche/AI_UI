@@ -452,3 +452,64 @@ body.settings-hidden .settings-panel {
   padding: 10px 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
+
+
+.chat-controls {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.chat-item-row {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.pin-button {
+  width: 28px;
+  height: 38px;
+  padding: 0;
+  margin: 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.pin-button.pinned {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.mini-output {
+  max-height: 160px;
+  overflow: auto;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.code-action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.code-action-row button {
+  width: auto;
+}
+
+.run-button {
+  background: #7b4cc2;
+  color: #fff;
+}
+
+.patch-button {
+  background: #2f8756;
+  color: #fff;
+}
+
+.folder-select {
+  margin-top: 8px;
+}

@@ -31,10 +31,12 @@
       </div>
 
       <h2>Saved Chats</h2>
+      <input id="chatSearch" placeholder="Search chats..." />
       <div class="chat-controls">
         <button id="selectChats" class="secondary-button">Select</button>
         <button id="deleteSelectedChats" class="danger-button" disabled>Delete</button>
         <button id="cancelSelectChats" class="secondary-button hidden">Cancel</button>
+        <button id="deleteAllChats" class="danger-button">Delete All</button>
       </div>
       <div id="chatList" class="chat-list"></div>
 
@@ -120,14 +122,70 @@
         <textarea id="system" rows="12"></textarea>
       </label>
 
-      <h2>Project Folder Mode</h2>
-      <p class="muted">Select files to include as context. Keep it small on 8 GB RAM.</p>
-      <button id="selectFolder" class="secondary-button">Select Project Folder</button>
+      <h2>Repo Agent</h2>
+      <p class="muted">Select a local folder or clone a public GitHub repo. Then choose files or search the codebase.</p>
+
+      <label>
+        GitHub Repo URL
+        <input id="githubUrl" placeholder="https://github.com/user/repo" />
+      </label>
+
+      <div class="row">
+        <button id="cloneRepo" class="secondary-button">Clone Repo</button>
+        <button id="gitPull" class="secondary-button">Pull</button>
+      </div>
+
+      <div class="row">
+        <button id="selectFolder" class="secondary-button">Select Local Folder</button>
+        <button id="refreshProject" class="secondary-button">Refresh Files</button>
+      </div>
+
       <button id="clearProject" class="secondary-button">Clear Project</button>
+
       <div id="projectStatus" class="muted">No project folder selected.</div>
-      <input id="projectSearch" placeholder="Filter files..." />
+
+      <h2>Git Tools</h2>
+      <div class="row">
+        <button id="gitStatusBtn" class="secondary-button">Status</button>
+        <button id="gitDiffBtn" class="secondary-button">View Diff</button>
+      </div>
+      <div class="row">
+        <button id="commitMsgBtn" class="secondary-button">Commit Msg</button>
+        <button id="undoPatchBtn" class="danger-button">Undo Patch</button>
+      </div>
+      <pre id="gitOutput" class="mini-output"></pre>
+
+      <h2>Code Search</h2>
+      <input id="projectSearch" placeholder="Search files or code..." />
+      <div class="row">
+        <button id="searchCodeBtn" class="secondary-button">Search Code</button>
+        <button id="selectSearchResults" class="secondary-button">Select Results</button>
+      </div>
+
       <div id="projectSelectedCount" class="muted">0 files selected</div>
       <div id="projectFiles" class="project-files"></div>
+
+      <h2>AI Code Tools</h2>
+      <div class="row">
+        <button id="explainProjectBtn" class="secondary-button">Explain Files</button>
+        <button id="bugFinderBtn" class="secondary-button">Find Bugs</button>
+      </div>
+      <div class="row">
+        <button id="diffPromptBtn" class="secondary-button">Make Patch</button>
+        <button id="logAnalyzerBtn" class="secondary-button">Analyze Logs</button>
+      </div>
+
+      <label>
+        Patch Preview
+        <textarea id="patchPreview" rows="8" placeholder="Paste a unified git diff here, then click Apply Patch."></textarea>
+      </label>
+      <button id="applyPatchBtn" class="primary-button">Apply Patch</button>
+
+      <label>
+        Terminal Command
+        <input id="terminalCommand" placeholder="npm test" />
+      </label>
+      <button id="runCommandBtn" class="danger-button">Run Command After Confirming</button>
     </aside>
     <button id="showSettings" class="floating-settings hidden">Show Settings</button>
   </div>
