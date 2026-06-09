@@ -1,12 +1,8 @@
-/dist
-/node_modules
-# Build output
 dist/
+node_modules/
 out/
 build/
 release/
-
-# Packaged Electron artifacts
 *.dmg
 *.zip
 *.AppImage
